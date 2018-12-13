@@ -41,6 +41,10 @@
 #include "gtkplugin.h"
 #include "gtkblist.h"
 
+static guint flash_timeout = 0;
+static gboolean should_flash = FALSE;
+static gboolean flash_state = FALSE;
+
 void led_set(gboolean state) {
   const char *filename=purple_prefs_get_string("/plugins/gtk/gtk-simom-lednot/filename");
   const char *format=purple_prefs_get_string("/plugins/gtk/gtk-simom-lednot/format");
@@ -132,6 +136,20 @@ GList *get_pending_list(guint max) {
     return l_chat;
 }
 
+static gboolean
+flash_toggle(gpointer data)
+{
+	flash_state = !flash_state;
+	led_set(flash_state);
+
+	if (!should_flash)
+	{
+        led_set(flash_state = FALSE);
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static void lednot_conversation_updated(PurpleConversation *conv,
                                         PurpleConvUpdateType type) {
   GList *list;
@@ -144,12 +162,23 @@ static void lednot_conversation_updated(PurpleConversation *conv,
 
   list=get_pending_list(1);
 
-  if(list==NULL) {
-    led_set(FALSE);
-  } else if(list!=NULL) {
-    led_set(TRUE);
-  }
+  gboolean has_unseen = list != NULL;
   g_list_free(list);
+
+  const int timeout = purple_prefs_get_int("/plugins/gtk/gtk-simom-lednot/flashmiliseconds");
+
+  if (has_unseen)
+  {
+    should_flash = TRUE;
+    if (flash_timeout == 0)
+        flash_timeout = purple_timeout_add(timeout, flash_toggle, NULL);
+  } else {
+    if (flash_timeout != 0)
+        purple_timeout_remove(flash_timeout);
+    should_flash = FALSE;
+    led_set(FALSE);
+  }
+
 }
 
 static GtkWidget *plugin_config_frame(PurplePlugin *plugin) {
@@ -198,6 +227,9 @@ static GtkWidget *plugin_config_frame(PurplePlugin *plugin) {
 			     NULL);
   gtk_size_group_add_widget(sg, dd);
 
+  ent=pidgin_prefs_labeled_spin_button(vbox2,"Flash duration (miliseconds):",
+				 "/plugins/gtk/gtk-simom-lednot/flashmiliseconds", 1, 10000, sg);
+
   gtk_widget_show_all(frame);
   return frame;
 }
@@ -209,6 +241,7 @@ static void init_plugin(PurplePlugin *plugin) {
   purple_prefs_add_string("/plugins/gtk/gtk-simom-lednot/filename",
 			  "/proc/acpi/asus/mled");
   purple_prefs_add_string("/plugins/gtk/gtk-simom-lednot/format", "num");
+  purple_prefs_add_int("/plugins/gtk/gtk-simom-lednot/flashmiliseconds", 2);
 }
 
 static gboolean plugin_load(PurplePlugin *plugin) {

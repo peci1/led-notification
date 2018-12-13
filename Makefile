@@ -13,11 +13,11 @@ led-notification.so: led-notification.c
 	gcc led-notification.c $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o led-notification.so
 
 install: led-notification.so
-	mkdir -p ~/.purple/plugins
-	cp led-notification.so ~/.purple/plugins/
+	mkdir -p /usr/lib/purple-2/
+	cp led-notification.so /usr/lib/purple-2/
 
 uninstall:
-	rm -f ~/.purple/plugins/led-notification.so
+	rm -f /usr/lib/purple-2/led-notification.so
 
 clean:
 	rm -f led-notification.so
